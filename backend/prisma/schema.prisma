@@ -13,8 +13,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  HR_RECRUITER
+  HIRING_MANAGER
+  ADMIN
+}
+
+enum ExperienceLevel {
+  ENTRY_LEVEL
+  MID_LEVEL
+  SENIOR_LEVEL
+  EXECUTIVE
+}
+
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(HR_RECRUITER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  candidatesCreated Candidate[] @relation("CandidateCreatedBy")
+
+  @@index([role])
+  @@map("users")
+}
+
+model Candidate {
+  id              Int             @id @default(autoincrement())
+  firstName       String
+  lastName        String
+  email           String          @unique
+  phone           String
+  experienceLevel ExperienceLevel
+  address         String?
+  education       String?
+  workExperience  String?
+  cvFileName      String?
+  cvFilePath      String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdById     Int
+
+  // Relations
+  createdBy User @relation("CandidateCreatedBy", fields: [createdById], references: [id])
+
+  @@index([experienceLevel])
+  @@index([createdAt])
+  @@index([createdById])
+  @@map("candidates")
 }
