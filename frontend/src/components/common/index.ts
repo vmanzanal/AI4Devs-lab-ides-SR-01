@@ -48,6 +48,9 @@ import {
   TableSkeleton,
   CardSkeleton
 } from './Loading';
+import FileValidationDisplay from './FileValidationDisplay';
+import UploadProgress from './UploadProgress';
+import UploadErrorBoundary, { withUploadErrorBoundary } from './UploadErrorBoundary';
 
 // Button Components
 export {
@@ -115,6 +118,13 @@ export {
   CardSkeleton
 } from './Loading';
 export type { LoadingProps, PageLoadingProps } from './Loading';
+
+// File Upload Components
+export { default as FileValidationDisplay } from './FileValidationDisplay';
+export type { FileValidationDisplayProps } from './FileValidationDisplay';
+export { default as UploadProgress } from './UploadProgress';
+export type { UploadProgressProps } from './UploadProgress';
+export { default as UploadErrorBoundary, withUploadErrorBoundary } from './UploadErrorBoundary';
 
 // Re-export for convenience
 export const CommonComponents = {

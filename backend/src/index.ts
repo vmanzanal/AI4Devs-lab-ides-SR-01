@@ -91,10 +91,20 @@ app.get('/health', (req: Request, res: Response) => {
 
 // API routes
 app.use('/api/auth', createAuthRoutes(authController, authService));
-app.use('/api/candidates', createCandidateRoutes(candidateController, authController, authService));
+app.use('/api/candidates', createCandidateRoutes(candidateController, authController, authService, fileService));
 
-// Serve uploaded files
-app.use('/api/files', express.static(path.join(process.cwd(), 'uploads')));
+// Create file serving middleware for static files
+const fileServingMiddleware = require('./middleware/fileServingMiddleware').createFileServingMiddleware(fileService);
+
+// Secure file serving with authentication and logging
+app.use('/api/files', 
+  express.json(),
+  ...fileServingMiddleware.createSecureStaticServing({
+    enableLogging: true,
+    maxDownloadSize: 10 * 1024 * 1024 // 10MB limit
+  }),
+  express.static(path.join(process.cwd(), 'uploads'))
+);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
@@ -123,7 +133,12 @@ app.get('/', (req: Request, res: Response) => {
         update: 'PUT /api/candidates/:id',
         delete: 'DELETE /api/candidates/:id',
         uploadCV: 'POST /api/candidates/:id/cv',
-        downloadCV: 'GET /api/candidates/:id/cv'
+        replaceCV: 'PUT /api/candidates/:id/cv',
+        deleteCV: 'DELETE /api/candidates/:id/cv',
+        bulkUploadCV: 'POST /api/candidates/bulk/cv',
+        downloadCV: 'GET /api/candidates/:id/cv',
+        previewCV: 'GET /api/candidates/:id/cv/preview',
+        getCVInfo: 'GET /api/candidates/:id/cv/info'
       },
       files: '/api/files',
       health: '/health'
@@ -196,6 +211,12 @@ app.listen(port, () => {
   console.log(`   📋 List: GET http://localhost:${port}/api/candidates`);
   console.log(`   ➕ Create: POST http://localhost:${port}/api/candidates`);
   console.log(`   📄 CV Upload: POST http://localhost:${port}/api/candidates/:id/cv`);
+  console.log(`   🔄 CV Replace: PUT http://localhost:${port}/api/candidates/:id/cv`);
+  console.log(`   🗑️  CV Delete: DELETE http://localhost:${port}/api/candidates/:id/cv`);
+  console.log(`   📂 Bulk Upload: POST http://localhost:${port}/api/candidates/bulk/cv`);
+  console.log(`   📥 CV Download: GET http://localhost:${port}/api/candidates/:id/cv`);
+  console.log(`   👁️  CV Preview: GET http://localhost:${port}/api/candidates/:id/cv/preview`);
+  console.log(`   ℹ️  CV Info: GET http://localhost:${port}/api/candidates/:id/cv/info`);
   
   console.log('\n📁 Static Files:');
   console.log(`   📂 Uploads: http://localhost:${port}/api/files/`);

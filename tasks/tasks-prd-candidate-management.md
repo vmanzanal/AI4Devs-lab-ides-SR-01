@@ -118,7 +118,7 @@ Based on PRD: `prd-candidate-management.md` and Technical Implementation Plan: `
   - [x] 3.7 Add password hashing for user authentication
   - [x] 3.8 Implement session management and token refresh
 
-- [ ] 4.0 Frontend Components and User Interface
+- [x] 4.0 Frontend Components and User Interface
   - [x] 4.1 Install required dependencies (react-hook-form, axios)
   - [x] 4.2 Create TypeScript type definitions for all entities
   - [x] 4.3 Set up API client service with authentication headers
@@ -130,15 +130,15 @@ Based on PRD: `prd-candidate-management.md` and Technical Implementation Plan: `
   - [x] 4.9 Add responsive styling and modern UI design
   - [x] 4.10 Implement form validation with real-time feedback
 
-- [ ] 5.0 File Upload and Management System
-  - [ ] 5.1 Install and configure Multer for file uploads
-  - [ ] 5.2 Create file service with PDF validation and size limits
-  - [ ] 5.3 Set up secure file storage directory structure
-  - [ ] 5.4 Implement FileUpload React component with drag-and-drop
-  - [ ] 5.5 Add file type and size validation on frontend
-  - [ ] 5.6 Create CV upload API endpoint with security checks
-  - [ ] 5.7 Implement file serving endpoint for CV downloads
-  - [ ] 5.8 Add upload progress indicators and error handling
+- [x] 5.0 File Upload and Management System
+  - [x] 5.1 Install and configure Multer for file uploads
+  - [x] 5.2 Create file service with PDF validation and size limits
+  - [x] 5.3 Set up secure file storage directory structure
+  - [x] 5.4 Implement FileUpload React component with drag-and-drop
+  - [x] 5.5 Add file type and size validation on frontend
+  - [x] 5.6 Create CV upload API endpoint with security checks
+  - [x] 5.7 Implement file serving endpoint for CV downloads
+  - [x] 5.8 Add upload progress indicators and error handling
 
 - [ ] 6.0 Testing Implementation and Quality Assurance
   - [ ] 6.1 Set up Jest configuration for backend testing

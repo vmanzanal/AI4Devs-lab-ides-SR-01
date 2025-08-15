@@ -21,10 +21,15 @@ export interface IFileUploadResult {
 
 export interface IFileService {
   uploadCV(file: IUploadedFile, candidateId: number): Promise<IFileUploadResult>;
-  validateFile(file: IUploadedFile): IFileValidationResult;
+  validateFile(file: IUploadedFile): Promise<IFileValidationResult>;
   deleteFile(filePath: string): Promise<void>;
+  deleteCandidateCV(candidateId: number): Promise<void>;
   getFileUrl(fileName: string): string;
+  getFileInfo(fileName: string): Promise<{ exists: boolean; size?: number; path?: string }>;
+  getFileBuffer(fileName: string): Promise<Buffer>;
+  generateFileHash(buffer: Buffer): string;
   ensureUploadDirectory(): Promise<void>;
+  getUploadStats(): { uploadDir: string; maxFileSize: number; allowedTypes: string[] };
 }
 
 export interface IValidationService {

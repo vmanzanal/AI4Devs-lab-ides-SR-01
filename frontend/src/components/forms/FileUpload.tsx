@@ -12,7 +12,11 @@ import {
   Chip,
   Alert,
   SxProps,
-  Theme
+  Theme,
+  Tooltip,
+  CircularProgress,
+  Stack,
+  Fade
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -20,9 +24,22 @@ import {
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Error as ErrorIcon,
-  CheckCircle as SuccessIcon
+  CheckCircle as SuccessIcon,
+  PictureAsPdf as PdfIcon,
+  Description as DocIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { FILE_VALIDATION } from '../../validation/candidateValidation';
+import { useFileUpload } from '../../hooks/useFileUpload';
+import { 
+  validateFile as comprehensiveValidateFile, 
+  quickValidateFile, 
+  FileValidationResult,
+  formatFileSize as utilFormatFileSize
+} from '../../utils/fileValidation';
+import FileValidationDisplay from '../common/FileValidationDisplay';
+import UploadProgress from '../common/UploadProgress';
+import UploadErrorBoundary from '../common/UploadErrorBoundary';
 
 export interface FileUploadProps {
   // File handling
@@ -47,10 +64,25 @@ export interface FileUploadProps {
   errorText?: string;
   disabled?: boolean;
   required?: boolean;
+  compact?: boolean;
+  showPreview?: boolean;
   
   // Upload state
   uploading?: boolean;
   uploadProgress?: number;
+  
+  // Auto upload functionality
+  autoUpload?: boolean;
+  candidateId?: number;
+  
+  // Validation options
+  enableComprehensiveValidation?: boolean;
+  showValidationDetails?: boolean;
+  customValidationOptions?: any;
+  
+  // Progress options
+  showUploadProgress?: boolean;
+  showProgressDetails?: boolean;
   
   // Styling
   sx?: SxProps<Theme>;
@@ -58,6 +90,9 @@ export interface FileUploadProps {
   // Callbacks
   onError?: (error: string) => void;
   onSuccess?: (file: File) => void;
+  onUploadComplete?: (fileInfo: any) => void;
+  onUploadStart?: () => void;
+  onValidationResult?: (result: FileValidationResult) => void;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
@@ -74,64 +109,143 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   errorText,
   disabled = false,
   required = false,
-  uploading = false,
-  uploadProgress,
+  compact = false,
+  showPreview = true,
+  uploading: externalUploading = false,
+  uploadProgress: externalUploadProgress,
+  autoUpload = false,
+  candidateId,
+  enableComprehensiveValidation = true,
+  showValidationDetails = false,
+  customValidationOptions = {},
+  showUploadProgress = true,
+  showProgressDetails = true,
   sx,
   onError,
-  onSuccess
+  onSuccess,
+  onUploadComplete,
+  onUploadStart,
+  onValidationResult
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [dragCounter, setDragCounter] = useState(0);
+  const [validationResult, setValidationResult] = useState<FileValidationResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Format file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  // Use file upload hook for auto-upload functionality
+  const fileUploadHook = useFileUpload({
+    maxSize,
+    allowedTypes: [...allowedTypes], // Convert readonly array to mutable array
+    onSuccess: (fileInfo) => {
+      onUploadComplete?.(fileInfo);
+    },
+    onError: (error) => {
+      setValidationError(error);
+      onError?.(error);
+    }
+  });
+
+  // Determine current upload state
+  const uploading = externalUploading || fileUploadHook.uploading;
+  const uploadProgress = externalUploadProgress ?? fileUploadHook.uploadProgress;
+
+  // Format file size (use utility function)
+  const formatFileSize = utilFormatFileSize;
+
+  // Get appropriate file icon
+  const getFileIcon = (fileName: string, size: 'small' | 'medium' | 'large' = 'medium') => {
+    const extension = fileName.toLowerCase().split('.').pop();
+    const iconProps = {
+      sx: { 
+        fontSize: size === 'small' ? 20 : size === 'medium' ? 32 : 48,
+        color: extension === 'pdf' ? 'error.main' : 'primary.main'
+      }
+    };
+
+    switch (extension) {
+      case 'pdf':
+        return <PdfIcon {...iconProps} />;
+      case 'doc':
+      case 'docx':
+        return <DocIcon {...iconProps} />;
+      default:
+        return <FileIcon {...iconProps} />;
+    }
   };
 
+  // Handle file retry (for failed uploads)
+  const handleRetry = useCallback(async () => {
+    if (file && autoUpload) {
+      setValidationError(null);
+      fileUploadHook.clearError();
+      onUploadStart?.();
+      await fileUploadHook.retryUpload(file, candidateId);
+    }
+  }, [file, autoUpload, candidateId, fileUploadHook, onUploadStart]);
+
+  // Handle upload cancel
+  const handleCancel = useCallback(() => {
+    fileUploadHook.reset();
+    setValidationError(null);
+    setValidationResult(null);
+  }, [fileUploadHook]);
+
   // Validate file
-  const validateFile = useCallback((file: File): string | null => {
-    // Check file size
-    if (file.size > maxSize) {
-      return `File size (${formatFileSize(file.size)}) exceeds maximum allowed size (${formatFileSize(maxSize)})`;
+  const validateFile = useCallback(async (file: File): Promise<string | null> => {
+    if (enableComprehensiveValidation) {
+      // Use comprehensive validation
+      const result = await comprehensiveValidateFile(file, {
+        maxSize,
+        allowedTypes: [...allowedTypes],
+        allowedExtensions: FILE_VALIDATION.ALLOWED_EXTENSIONS,
+        strictTypeChecking: true,
+        checkMagicNumbers: true,
+        preventDoubleExtensions: true,
+        checkSuspiciousNames: true,
+        ...customValidationOptions
+      });
+      
+      setValidationResult(result);
+      onValidationResult?.(result);
+      
+      if (!result.isValid) {
+        return result.errors[0]; // Return first error
+      }
+      
+      return null;
+    } else {
+      // Use quick validation for backward compatibility
+      const result = quickValidateFile(file);
+      if (!result.isValid) {
+        return result.error || 'File validation failed';
+      }
+      return null;
     }
-
-    // Check file type
-    if (!allowedTypes.includes(file.type as any)) {
-      const allowedExtensions = accept.split(',').map(ext => ext.trim()).join(', ');
-      return `File type not allowed. Please use: ${allowedExtensions}`;
-    }
-
-    // Check file extension as fallback
-    const fileName = file.name.toLowerCase();
-    const allowedExtensions = ['.pdf', '.doc', '.docx'];
-    const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
-    
-    if (!hasValidExtension) {
-      return `File extension not allowed. Please use: ${allowedExtensions.join(', ')}`;
-    }
-
-    return null;
-  }, [maxSize, allowedTypes, accept]);
+  }, [maxSize, allowedTypes, enableComprehensiveValidation, customValidationOptions, onValidationResult]);
 
   // Handle file selection
-  const handleFileSelect = useCallback((selectedFile: File) => {
+  const handleFileSelect = useCallback(async (selectedFile: File) => {
     setValidationError(null);
+    setValidationResult(null);
+    fileUploadHook.clearError();
     
-    const validationResult = validateFile(selectedFile);
-    if (validationResult) {
-      setValidationError(validationResult);
-      onError?.(validationResult);
+    const validationError = await validateFile(selectedFile);
+    if (validationError) {
+      setValidationError(validationError);
+      onError?.(validationError);
       return;
     }
 
     onFileChange(selectedFile);
     onSuccess?.(selectedFile);
-  }, [validateFile, onFileChange, onError, onSuccess]);
+
+    // Auto-upload if enabled
+    if (autoUpload) {
+      onUploadStart?.();
+      await fileUploadHook.uploadFile(selectedFile, candidateId);
+    }
+  }, [validateFile, onFileChange, onError, onSuccess, autoUpload, candidateId, fileUploadHook, onUploadStart]);
 
   // Handle input change
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,6 +264,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const handleDragIn = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setDragCounter(prev => prev + 1);
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       setDragActive(true);
     }
@@ -158,7 +273,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const handleDragOut = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragActive(false);
+    setDragCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount === 0) {
+        setDragActive(false);
+      }
+      return newCount;
+    });
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -203,15 +324,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   // Current error to display
-  const displayError = errorText || validationError;
+  const displayError = errorText || validationError || fileUploadHook.error;
 
   return (
-    <Box sx={sx}>
-      {/* Label */}
-      <Typography variant="subtitle2" gutterBottom>
-        {label}
-        {required && <span style={{ color: 'red' }}> *</span>}
-      </Typography>
+    <UploadErrorBoundary
+      onError={(error, errorInfo, errorId) => {
+        console.error('FileUpload Error:', { error, errorInfo, errorId });
+        onError?.(error.message);
+      }}
+      showDetails={process.env.NODE_ENV === 'development'}
+    >
+      <Box sx={sx}>
+        {/* Label */}
+        <Typography variant="subtitle2" gutterBottom>
+          {label}
+          {required && <span style={{ color: 'red' }}> *</span>}
+        </Typography>
 
       {/* Existing file display */}
       {existingFile && !file && (
@@ -227,7 +355,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <FileIcon color="success" />
+            {getFileIcon(existingFile.fileName, 'small')}
             <Box sx={{ flex: 1 }}>
               <Typography variant="body2" fontWeight={500}>
                 {existingFile.fileName}
@@ -263,7 +391,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       <Paper
         elevation={dragActive ? 3 : 1}
         sx={{
-          p: 3,
+          p: compact ? 2 : 3,
           border: '2px dashed',
           borderColor: error ? 'error.main' : 
                       dragActive ? 'primary.main' : 
@@ -272,9 +400,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                           dragActive ? 'primary.50' : 
                           file ? 'success.50' : 'grey.50',
           cursor: disabled || uploading ? 'not-allowed' : 'pointer',
-          transition: 'all 0.2s ease',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           borderRadius: 2,
-          opacity: disabled ? 0.6 : 1
+          opacity: disabled ? 0.6 : 1,
+          minHeight: compact ? 80 : 120,
+          '&:hover': {
+            borderColor: !disabled && !uploading ? 'primary.main' : undefined,
+            backgroundColor: !disabled && !uploading ? 'primary.50' : undefined,
+          }
         }}
         onDragEnter={handleDragIn}
         onDragLeave={handleDragOut}
@@ -296,20 +429,25 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           <Box sx={{ textAlign: 'center' }}>
             <UploadIcon
               sx={{
-                fontSize: 48,
+                fontSize: compact ? 32 : 48,
                 color: error ? 'error.main' : 
                        dragActive ? 'primary.main' : 'grey.400',
-                mb: 2
+                mb: compact ? 1 : 2,
+                transition: 'all 0.3s ease'
               }}
             />
-            <Typography variant="h6" gutterBottom>
-              {dragActive ? 'Drop file here' : 'Drop file here or click to browse'}
+            <Typography variant={compact ? "body1" : "h6"} gutterBottom>
+              {dragActive ? 'Drop file here' : 
+               compact ? 'Drop or click to browse' : 'Drop file here or click to browse'}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {helperText}
-            </Typography>
+            {!compact && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {helperText}
+              </Typography>
+            )}
             <Button
               variant="outlined"
+              size={compact ? "small" : "medium"}
               disabled={disabled || uploading}
               onClick={(e) => {
                 e.stopPropagation();
@@ -320,53 +458,104 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             </Button>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <FileIcon color="success" sx={{ fontSize: 32 }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="body1" fontWeight={500}>
-                {file.name}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {formatFileSize(file.size)}
-              </Typography>
+          <Fade in={!!file}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {getFileIcon(file.name)}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body1" fontWeight={500}>
+                  {file.name}
+                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    {formatFileSize(file.size)}
+                  </Typography>
+                  {showPreview && file.type === 'application/pdf' && (
+                    <Typography variant="caption" color="primary.main" sx={{ cursor: 'pointer' }}>
+                      • Preview available
+                    </Typography>
+                  )}
+                </Stack>
+              </Box>
+              
+              {/* Status indicators */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {uploading ? (
+                  <CircularProgress size={20} />
+                ) : fileUploadHook.isSuccess || (!autoUpload && file) ? (
+                  <Chip
+                    label={autoUpload ? "Uploaded" : "Selected"}
+                    color="success"
+                    size="small"
+                    icon={<SuccessIcon />}
+                  />
+                ) : fileUploadHook.hasError ? (
+                  <Tooltip title="Upload failed - click to retry">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRetry();
+                      }}
+                      disabled={!autoUpload}
+                    >
+                      <RefreshIcon />
+                    </IconButton>
+                  </Tooltip>
+                ) : null}
+                
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleFileRemove();
+                  }}
+                  color="error"
+                  size="small"
+                  disabled={disabled || uploading}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
             </Box>
-            <Chip
-              label="Selected"
-              color="success"
-              size="small"
-              icon={<SuccessIcon />}
-            />
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                handleFileRemove();
-              }}
-              color="error"
-              size="small"
-              disabled={disabled || uploading}
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Box>
+          </Fade>
         )}
 
-        {/* Upload progress */}
-        {uploading && (
+        {/* Enhanced Upload Progress */}
+        {showUploadProgress && (uploading || fileUploadHook.hasError || fileUploadHook.isSuccess) && (
           <Box sx={{ mt: 2 }}>
-            <LinearProgress
-              variant={uploadProgress !== undefined ? 'determinate' : 'indeterminate'}
-              value={uploadProgress}
-              sx={{ mb: 1 }}
+            <UploadProgress
+              uploading={uploading}
+              progress={uploadProgress || 0}
+              stage={fileUploadHook.stage}
+              uploadSpeed={fileUploadHook.uploadSpeed}
+              estimatedTimeRemaining={fileUploadHook.estimatedTimeRemaining}
+              error={fileUploadHook.error}
+              lastError={fileUploadHook.lastError}
+              retryCount={fileUploadHook.retryCount}
+              fileName={file?.name}
+              fileSize={file?.size}
+              onRetry={handleRetry}
+              onCancel={uploading ? handleCancel : undefined}
+              onClose={() => fileUploadHook.reset()}
+              compact={compact}
+              showDetails={showProgressDetails}
+              showFileInfo={false} // File info already shown above
             />
-            <Typography variant="caption" color="text.secondary">
-              {uploadProgress !== undefined
-                ? `Uploading... ${Math.round(uploadProgress)}%`
-                : 'Uploading...'
-              }
-            </Typography>
           </Box>
         )}
       </Paper>
+
+      {/* Validation Results */}
+      {enableComprehensiveValidation && validationResult && file && (
+        <Box sx={{ mt: 2 }}>
+          <FileValidationDisplay
+            validationResult={validationResult}
+            file={file}
+            showDetails={showValidationDetails}
+            compact={compact}
+          />
+        </Box>
+      )}
 
       {/* Error message */}
       {displayError && (
@@ -380,12 +569,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       )}
 
       {/* Helper text */}
-      {!displayError && helperText && !file && (
+      {!displayError && helperText && !file && compact && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
           {helperText}
         </Typography>
       )}
-    </Box>
+      </Box>
+    </UploadErrorBoundary>
   );
 };
 

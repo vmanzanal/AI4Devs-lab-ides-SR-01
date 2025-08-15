@@ -10,7 +10,11 @@
         "test": "jest",
         "prisma:init": "npx prisma init",
         "prisma:generate": "npx prisma generate",
-        "start:prod": "npm run build && npm start"
+        "start:prod": "npm run build && npm start",
+        "setup:storage": "ts-node src/scripts/setupFileStorage.ts",
+        "setup:storage:prod": "npm run build && node dist/scripts/setupFileStorage.js",
+        "cleanup:temp": "ts-node -e \"import { fileStorageSetup } from './src/utils/fileStorageSetup'; fileStorageSetup.cleanupTempFiles().then(() => console.log('Temp cleanup completed'))\"",
+        "storage:stats": "ts-node -e \"import { fileStorageSetup } from './src/utils/fileStorageSetup'; fileStorageSetup.getStorageStats().then(stats => console.log(JSON.stringify(stats, null, 2)))\""
     },
     "keywords": [],
     "author": "",

@@ -28,6 +28,7 @@ import {
   AuthenticatedRoute,
   PublicRoute
 } from './useProtectedRoute';
+import { useFileUpload } from './useFileUpload';
 
 // Authentication Hooks
 export {
@@ -75,6 +76,14 @@ export {
   type RouteProtectionOptions,
   type ProtectedRouteProps
 } from './useProtectedRoute';
+
+// File Upload Hooks
+export {
+  useFileUpload,
+  type FileUploadState,
+  type UploadedFileInfo,
+  type UseFileUploadOptions
+} from './useFileUpload';
 
 // Re-export for convenience
 export const AuthHooks = {
