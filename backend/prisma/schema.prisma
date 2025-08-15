@@ -27,17 +27,31 @@ enum ExperienceLevel {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  role      UserRole @default(HR_RECRUITER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               Int       @id @default(autoincrement())
+  email            String    @unique
+  name             String?
+  password         String    // Hashed password
+  role             UserRole  @default(HR_RECRUITER)
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  loginAttempts    Int       @default(0)
+  lockedUntil      DateTime?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
+  refreshToken     String?   // Current active refresh token
+  refreshTokenExpires DateTime? // Refresh token expiration
+  refreshTokenFamily String?  // Token family for rotation detection
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relations
   candidatesCreated Candidate[] @relation("CandidateCreatedBy")
 
   @@index([role])
+  @@index([email])
+  @@index([isActive])
+  @@index([refreshToken])
+  @@index([refreshTokenFamily])
   @@map("users")
 }
 

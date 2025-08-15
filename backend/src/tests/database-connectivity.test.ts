@@ -43,7 +43,8 @@ describe('Database Connectivity and Model Relationships', () => {
       const user = await prisma.user.create({
         data: {
           email: 'test@example.com',
-          name: 'Test User'
+          name: 'Test User',
+          password: 'hashedPassword123'
         }
       });
 
@@ -60,7 +61,8 @@ describe('Database Connectivity and Model Relationships', () => {
         data: {
           email: 'manager@example.com',
           name: 'Hiring Manager',
-          role: 'HIRING_MANAGER'
+          role: 'HIRING_MANAGER',
+          password: 'hashedPassword123'
         }
       });
 
@@ -71,7 +73,8 @@ describe('Database Connectivity and Model Relationships', () => {
       await prisma.user.create({
         data: {
           email: 'unique@example.com',
-          name: 'First User'
+          name: 'First User',
+          password: 'hashedPassword123'
         }
       });
 
@@ -80,7 +83,8 @@ describe('Database Connectivity and Model Relationships', () => {
         prisma.user.create({
           data: {
             email: 'unique@example.com',
-            name: 'Second User'
+            name: 'Second User',
+            password: 'hashedPassword123'
           }
         })
       ).rejects.toThrow();
@@ -94,7 +98,8 @@ describe('Database Connectivity and Model Relationships', () => {
       testUser = await prisma.user.create({
         data: {
           email: `user-${Date.now()}@example.com`,
-          name: 'Test User for Candidates'
+          name: 'Test User for Candidates',
+          password: 'hashedPassword123'
         }
       });
     });
@@ -181,7 +186,8 @@ describe('Database Connectivity and Model Relationships', () => {
       testUser = await prisma.user.create({
         data: {
           email: `relationship-user-${Date.now()}@example.com`,
-          name: 'Relationship Test User'
+          name: 'Relationship Test User',
+          password: 'hashedPassword123'
         }
       });
     });
