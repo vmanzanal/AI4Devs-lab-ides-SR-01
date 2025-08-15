@@ -1,0 +1,52 @@
+# === Dependency and build artifacts ===
+node_modules
+dist
+build
+target
+out
+.gradle
+.mvn
+
+# === IDE configuration files ===
+.vscode
+.idea
+*.iml
+*.classpath
+*.project
+.settings/
+
+# === Temporary and system files ===
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# === Deployment artifacts ===
+*.war
+*.ear
+*.jar
+!src/main/resources/*.jar   # allow embedded jars in resources if needed for context
+
+# === Sensitive configuration files ===
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# === Other binary/large files ===
+*.zip
+*.tar
+*.gz
+*.7z
+*.mp4
+*.mov
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+
+# === allow read .ai folder === #
+!.ai
